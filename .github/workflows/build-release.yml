@@ -20,7 +20,7 @@ jobs:
           mkdir project
           unzip -q NinjaCam_AIDE_Release_Full.zip -d project
 
-          echo "=== Project contents ==="
+          echo "=== Project ==="
           find project -maxdepth 3 -type f | head -100
 
       - name: Locate project
@@ -28,38 +28,43 @@ jobs:
           SETTINGS=$(find project -name settings.gradle.kts -o -name settings.gradle | head -1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "settings.gradle(.kts) tidak ditemukan"
+            echo "settings.gradle tidak ditemukan"
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
-
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project ditemukan di: $PROJECT_DIR"
 
-      - name: Setup Java
+          echo "Project: $PROJECT_DIR"
+
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "8"
+          java-version: "17"
 
-      - name: Check project
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Check Java and Gradle
         run: |
-          ls -la
-          chmod +x gradlew
+          java -version
+          gradle --version
 
       - name: Build Release APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace
 
       - name: Find APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
+          echo "=== APK ==="
           find . -type f -name "*.apk" -print
 
-      - name: Upload APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: NinjaCam-release
