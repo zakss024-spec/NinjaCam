@@ -1,0 +1,68 @@
+name: Build NinjaCam Release
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "NinjaCam_AIDE_Release_Full.zip"
+      - ".github/workflows/build-release.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract NinjaCam ZIP
+        run: |
+          mkdir project
+          unzip -q NinjaCam_AIDE_Release_Full.zip -d project
+
+          echo "=== Project contents ==="
+          find project -maxdepth 3 -type f | head -100
+
+      - name: Locate project
+        run: |
+          SETTINGS=$(find project -name settings.gradle.kts -o -name settings.gradle | head -1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "settings.gradle(.kts) tidak ditemukan"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project ditemukan di: $PROJECT_DIR"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Check project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          ls -la
+          chmod +x gradlew
+
+      - name: Build Release APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Find APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          find . -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NinjaCam-release
+          path: |
+            ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
